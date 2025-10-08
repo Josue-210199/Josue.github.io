@@ -23,11 +23,25 @@
       font-size: 13px;
       font-family: Arial, sans-serif;
     }
+
+    .locate-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: white;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      cursor: pointer;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <div class="brand">JB SIG STUDIO</div>
+  <button class="locate-btn" onclick="mostrarUbicacion()">📍 Mi ubicación</button>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="puntos.js"></script> <!-- tu archivo GeoJSON -->
@@ -49,14 +63,41 @@
       }
     }).addTo(map);
 
-    // Centrar mapa a la extensión de los puntos
+    // Centrar mapa según tus puntos
     map.fitBounds(puntosLayer.getBounds());
 
-    // Registrar el service worker
+    // Marcador y círculo para ubicación
+    var userMarker, accuracyCircle;
+
+    function mostrarUbicacion() {
+      if (!navigator.geolocation) {
+        alert("La geolocalización no es compatible en este dispositivo");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        var lat = pos.coords.latitude;
+        var lon = pos.coords.longitude;
+        var accuracy = pos.coords.accuracy;
+
+        if (userMarker) {
+          map.removeLayer(userMarker);
+          map.removeLayer(accuracyCircle);
+        }
+
+        userMarker = L.marker([lat, lon]).addTo(map).bindPopup("📍 Estás aquí").openPopup();
+        accuracyCircle = L.circle([lat, lon], { radius: accuracy, color: 'blue', opacity: 0.4 }).addTo(map);
+
+        map.setView([lat, lon], 16);
+      }, function (err) {
+        alert("No se pudo obtener tu ubicación: " + err.message);
+      });
+    }
+
+    // Service Worker para modo offline
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
     }
   </script>
 </body>
 </html>
-
