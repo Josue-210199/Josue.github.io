@@ -35,6 +35,7 @@
       box-shadow: 0 2px 5px rgba(0,0,0,0.3);
       cursor: pointer;
       font-size: 14px;
+      z-index: 1000;
     }
   </style>
 </head>
@@ -43,18 +44,22 @@
   <div class="brand">JB SIG STUDIO</div>
   <button class="locate-btn" onclick="mostrarUbicacion()">📍 Mi ubicación</button>
 
+  <!-- Librería Leaflet -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="puntos.js"></script> <!-- tu archivo GeoJSON -->
+  <!-- Archivo con tus puntos en formato GeoJSON -->
+  <script src="puntos.js"></script>
+
   <script>
+    // Crear mapa base
     var map = L.map('map').setView([-12.0, -77.0], 12);
 
-    // Fondo tipo calle
+    // Capa base tipo calle (OpenStreetMap)
     var calles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Capa de puntos
+    // Cargar tus puntos desde puntos.js
     var puntosLayer = L.geoJSON(puntosGeoJSON, {
       onEachFeature: function (feature, layer) {
         if (feature.properties && feature.properties.name) {
@@ -63,40 +68,64 @@
       }
     }).addTo(map);
 
-    // Centrar mapa según tus puntos
-    map.fitBounds(puntosLayer.getBounds());
+    // Centrar el mapa en tus puntos
+    if (puntosLayer.getBounds().isValid()) {
+      map.fitBounds(puntosLayer.getBounds());
+    }
 
-    // Marcador y círculo para ubicación
+    // Variables para ubicación del usuario
     var userMarker, accuracyCircle;
 
+    // Función para mostrar la ubicación del usuario
     function mostrarUbicacion() {
       if (!navigator.geolocation) {
         alert("La geolocalización no es compatible en este dispositivo");
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(function (pos) {
-        var lat = pos.coords.latitude;
-        var lon = pos.coords.longitude;
-        var accuracy = pos.coords.accuracy;
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          console.log("Ubicación obtenida:", pos);
+          var lat = pos.coords.latitude;
+          var lon = pos.coords.longitude;
+          var accuracy = pos.coords.accuracy;
 
-        if (userMarker) {
-          map.removeLayer(userMarker);
-          map.removeLayer(accuracyCircle);
+          // Si ya hay marcador previo, eliminarlo
+          if (userMarker) {
+            map.removeLayer(userMarker);
+            map.removeLayer(accuracyCircle);
+          }
+
+          // Crear marcador y círculo de precisión
+          userMarker = L.marker([lat, lon]).addTo(map).bindPopup("📍 Estás aquí").openPopup();
+          accuracyCircle = L.circle([lat, lon], {
+            radius: accuracy,
+            color: 'blue',
+            opacity: 0.4
+          }).addTo(map);
+
+          // Centrar mapa en tu posición
+          map.setView([lat, lon], 16);
+        },
+        function (err) {
+          console.error("Error de geolocalización:", err);
+          if (err.code === 1) alert("Debes permitir el acceso a tu ubicación.");
+          else if (err.code === 2) alert("No se pudo obtener tu ubicación.");
+          else alert("Error desconocido al obtener ubicación.");
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
         }
-
-        userMarker = L.marker([lat, lon]).addTo(map).bindPopup("📍 Estás aquí").openPopup();
-        accuracyCircle = L.circle([lat, lon], { radius: accuracy, color: 'blue', opacity: 0.4 }).addTo(map);
-
-        map.setView([lat, lon], 16);
-      }, function (err) {
-        alert("No se pudo obtener tu ubicación: " + err.message);
-      });
+      );
     }
 
-    // Service Worker para modo offline
+    // Registrar Service Worker para modo offline
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js');
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log("Service Worker registrado:", reg))
+        .catch(err => console.error("Error registrando Service Worker:", err));
     }
   </script>
 </body>
