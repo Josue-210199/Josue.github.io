@@ -3,13 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mapa Offline - JB SIG STUDIO</title>
+  <title>Mapa JB SIG STUDIO</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    html, body, #map {
+    html, body {
       height: 100%;
       margin: 0;
       padding: 0;
+    }
+
+    #map, #mymaps {
+      width: 100%;
+      height: 100%;
+      display: none;
     }
 
     .brand {
@@ -22,6 +28,25 @@
       border-radius: 8px;
       font-size: 13px;
       font-family: Arial, sans-serif;
+      z-index: 1000;
+    }
+
+    .menu {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+    }
+
+    .menu button {
+      background: white;
+      border: none;
+      padding: 6px 10px;
+      margin-right: 5px;
+      border-radius: 6px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      cursor: pointer;
+      font-size: 14px;
     }
 
     .locate-btn {
@@ -40,26 +65,39 @@
   </style>
 </head>
 <body>
+  <div class="menu">
+    <button onclick="mostrarLeaflet()">🗺️ Mapa Offline</button>
+    <button onclick="mostrarMyMaps()">🌐 Google My Maps</button>
+  </div>
+
   <div id="map"></div>
+
+  <div id="mymaps">
+    <iframe 
+      src="https://www.google.com/maps/d/u/0/embed?mid=1vhLqJK2iTzq_v-mqrBeQZVtMzBETKEI&ehbc=2E312F"
+      width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy">
+    </iframe>
+  </div>
+
   <div class="brand">JB SIG STUDIO</div>
   <button class="locate-btn" onclick="mostrarUbicacion()">📍 Mi ubicación</button>
 
   <!-- Librería Leaflet -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <!-- Archivo con tus puntos en formato GeoJSON -->
+  <!-- Tus puntos en GeoJSON -->
   <script src="puntos.js"></script>
 
   <script>
-    // Crear mapa base
+    // Inicializar mapa Leaflet
     var map = L.map('map').setView([-12.0, -77.0], 12);
 
-    // Capa base tipo calle (OpenStreetMap)
+    // Capa base
     var calles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Cargar tus puntos desde puntos.js
+    // Cargar tus puntos
     var puntosLayer = L.geoJSON(puntosGeoJSON, {
       onEachFeature: function (feature, layer) {
         if (feature.properties && feature.properties.name) {
@@ -68,15 +106,13 @@
       }
     }).addTo(map);
 
-    // Centrar el mapa en tus puntos
     if (puntosLayer.getBounds().isValid()) {
       map.fitBounds(puntosLayer.getBounds());
     }
 
-    // Variables para ubicación del usuario
+    // Variables de ubicación
     var userMarker, accuracyCircle;
 
-    // Función para mostrar la ubicación del usuario
     function mostrarUbicacion() {
       if (!navigator.geolocation) {
         alert("La geolocalización no es compatible en este dispositivo");
@@ -85,43 +121,42 @@
 
       navigator.geolocation.getCurrentPosition(
         function (pos) {
-          console.log("Ubicación obtenida:", pos);
           var lat = pos.coords.latitude;
           var lon = pos.coords.longitude;
           var accuracy = pos.coords.accuracy;
 
-          // Si ya hay marcador previo, eliminarlo
           if (userMarker) {
             map.removeLayer(userMarker);
             map.removeLayer(accuracyCircle);
           }
 
-          // Crear marcador y círculo de precisión
           userMarker = L.marker([lat, lon]).addTo(map).bindPopup("📍 Estás aquí").openPopup();
-          accuracyCircle = L.circle([lat, lon], {
-            radius: accuracy,
-            color: 'blue',
-            opacity: 0.4
-          }).addTo(map);
-
-          // Centrar mapa en tu posición
+          accuracyCircle = L.circle([lat, lon], { radius: accuracy, color: 'blue', opacity: 0.4 }).addTo(map);
           map.setView([lat, lon], 16);
         },
         function (err) {
-          console.error("Error de geolocalización:", err);
           if (err.code === 1) alert("Debes permitir el acceso a tu ubicación.");
-          else if (err.code === 2) alert("No se pudo obtener tu ubicación.");
-          else alert("Error desconocido al obtener ubicación.");
+          else alert("No se pudo obtener tu ubicación.");
         },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
 
-    // Registrar Service Worker para modo offline
+    // Alternar vistas
+    function mostrarLeaflet() {
+      document.getElementById('map').style.display = 'block';
+      document.getElementById('mymaps').style.display = 'none';
+    }
+
+    function mostrarMyMaps() {
+      document.getElementById('map').style.display = 'none';
+      document.getElementById('mymaps').style.display = 'block';
+    }
+
+    // Mostrar Leaflet por defecto
+    mostrarLeaflet();
+
+    // Registrar Service Worker (para modo offline)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js')
         .then(reg => console.log("Service Worker registrado:", reg))
