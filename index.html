@@ -1,101 +1,77 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mapa de Emergencia - JB SIG STUDIO</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Puntos de Reunión - SJL</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    html, body { height: 100%; margin: 0; padding: 0; }
-    #map { width: 100%; height: 100%; }
-    .brand {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      background: rgba(0, 0, 0, 0.6);
-      color: white;
-      padding: 6px 10px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-family: Arial, sans-serif;
-      z-index: 1000;
-    }
-    .locate-btn {
-      position: absolute;
-      top: 10px;
-      right: 10px;
+    html, body { height: 100%; margin: 0; }
+    #map { height: 100%; }
+    .leaflet-control-locate {
       background: white;
-      border: none;
-      padding: 6px 10px;
-      border-radius: 6px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      padding: 5px;
+      border-radius: 5px;
       cursor: pointer;
-      font-size: 14px;
-      z-index: 1000;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <div class="brand">JB SIG STUDIO</div>
-  <button class="locate-btn" onclick="mostrarUbicacion()">📍 Mi ubicación</button>
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="puntos.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Crear mapa
-    var map = L.map('map').setView([-12.01, -76.98], 13);
+    // Crear el mapa
+    const map = L.map('map').setView([-12.01, -77.00], 13);
 
-    // Capa base de OpenStreetMap (cacheable)
-    var calles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Capa base tipo calle
+    const calle = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '© OpenStreetMap'
+      attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
     }).addTo(map);
 
-    // Agregar puntos desde puntos.js
-    var puntosLayer = L.geoJSON(puntosGeoJSON, {
-      onEachFeature: function (feature, layer) {
-        if (feature.properties && feature.properties.name) {
-          layer.bindPopup('<b>' + feature.properties.name + '</b>');
-        }
-      }
-    }).addTo(map);
+    // Cargar puntos del archivo GeoJSON
+    fetch('punto_reunion_v4.geojson')
+      .then(response => response.json())
+      .then(data => {
+        const puntos = L.geoJSON(data, {
+          onEachFeature: function (feature, layer) {
+            layer.bindPopup(`<b>${feature.properties.name}</b>`);
+          }
+        }).addTo(map);
+        map.fitBounds(puntos.getBounds());
+      });
 
-    if (puntosLayer.getBounds().isValid()) {
-      map.fitBounds(puntosLayer.getBounds());
-    }
-
-    // Mostrar ubicación del usuario
-    var userMarker, accuracyCircle;
+    // Mostrar ubicación actual del usuario
     function mostrarUbicacion() {
       if (!navigator.geolocation) {
-        alert("Tu dispositivo no permite geolocalización");
+        alert("La geolocalización no es compatible con este navegador.");
         return;
       }
       navigator.geolocation.getCurrentPosition(
-        function (pos) {
-          var lat = pos.coords.latitude;
-          var lon = pos.coords.longitude;
-          var acc = pos.coords.accuracy;
-          if (userMarker) { map.removeLayer(userMarker); map.removeLayer(accuracyCircle); }
-          userMarker = L.marker([lat, lon]).addTo(map).bindPopup("📍 Estás aquí").openPopup();
-          accuracyCircle = L.circle([lat, lon], {radius: acc, color:'blue', opacity:0.3}).addTo(map);
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const marker = L.marker([lat, lon]).addTo(map);
+          marker.bindPopup("📍 Tu ubicación actual").openPopup();
           map.setView([lat, lon], 16);
         },
-        function (err) {
-          alert("No se pudo obtener tu ubicación. Asegúrate de permitir el acceso.");
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
+        (err) => {
+          alert("No se pudo obtener tu ubicación.");
+        }
       );
     }
 
-    // Registrar Service Worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js')
-        .then(reg => console.log('Service Worker registrado', reg))
-        .catch(err => console.error('Error registrando SW:', err));
-    }
+    // Botón de geolocalización
+    const boton = L.control({position: 'topleft'});
+    boton.onAdd = function () {
+      const div = L.DomUtil.create('div', 'leaflet-control-locate');
+      div.innerHTML = '📍 Mi ubicación';
+      div.onclick = mostrarUbicacion;
+      return div;
+    };
+    boton.addTo(map);
   </script>
 </body>
 </html>
